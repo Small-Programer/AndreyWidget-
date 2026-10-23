@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="14dp">
+
+    <!-- Header con título, botón de refrescar y paginador rotativo -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:layout_marginBottom="10dp">
+
+        <TextView
+            android:id="@+id/txt_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="⚡ Andrey Control 🔄"
+            android:textColor="#EEF1F8"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <!-- Botón página anterior -->
+        <TextView
+            android:id="@+id/btn_prev"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:gravity="center"
+            android:text="◀"
+            android:textColor="#8FA0FF"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <!-- Indicador de página -->
+        <TextView
+            android:id="@+id/txt_page_indicator"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp"
+            android:text="1/4"
+            android:textColor="#9AA5BD"
+            android:textSize="11sp" />
+
+        <!-- Botón página siguiente -->
+        <TextView
+            android:id="@+id/btn_next"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:gravity="center"
+            android:text="▶"
+            android:textColor="#8FA0FF"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- Subtítulo dinámico -->
+    <TextView
+        android:id="@+id/txt_category"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="ACCIONES DETECTADAS"
+        android:textColor="#8FA0FF"
+        android:textSize="10sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="8dp" />
+
+    <!-- Botón 1 -->
+    <TextView
+        android:id="@+id/btn_action_1"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:layout_marginBottom="6dp"
+        android:background="@drawable/btn_start_bg"
+        android:gravity="center"
+        android:text="🚀 Acción 1"
+        android:textColor="#FFFFFF"
+        android:textSize="13sp"
+        android:textStyle="bold" />
+
+    <!-- Botón 2 -->
+    <TextView
+        android:id="@+id/btn_action_2"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:background="@drawable/btn_stop_bg"
+        android:gravity="center"
+        android:text="🛑 Acción 2"
+        android:textColor="#FF5F56"
+        android:textSize="13sp"
+        android:textStyle="bold" />
+
+</LinearLayout>

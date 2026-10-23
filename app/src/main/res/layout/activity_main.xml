@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0F1A30"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="⚡ Andrey Widget"
+        android:textColor="#EEF1F8"
+        android:textSize="22sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:gravity="center"
+        android:text="Control nativo para Termux en tu escritorio.\n\nPara usarlo:\n1. Ve a la pantalla de inicio de tu tableta.\n2. Mantén presionado y elige Widgets.\n3. Añade 'Andrey Widget' a tu pantalla."
+        android:textColor="#9AA5BD"
+        android:textSize="14sp" />
+
+</LinearLayout>

@@ -3,11 +3,15 @@ package com.andrey.widget;
 import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
 import android.appwidget.AppWidgetProvider;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.View;
 import android.widget.RemoteViews;
 import android.widget.Toast;
@@ -15,8 +19,14 @@ import android.widget.Toast;
 import org.json.JSONArray;
 import org.json.JSONException;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class AndreyWidgetProvider extends AppWidgetProvider {
 
@@ -28,6 +38,8 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
     public static final String ACTION_UPDATE_LIST = "com.andrey.widget.UPDATE_LIST";
 
     private static final int ITEMS_PER_PAGE = 2;
+    private static final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private static final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     @Override
     public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
@@ -51,7 +63,6 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
 
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_layout);
         views.setTextViewText(R.id.txt_page_indicator, (page + 1) + "/" + totalPages);
-        views.setTextViewText(R.id.txt_category, "SCRIPTS ACTIVOS (" + totalItems + ")");
 
         int flags = PendingIntent.FLAG_UPDATE_CURRENT;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -80,27 +91,52 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
         int index1 = page * ITEMS_PER_PAGE;
         int index2 = index1 + 1;
 
-        if (index1 < totalItems) {
-            String item1 = shortcuts.get(index1);
+        String item1 = (index1 < totalItems) ? shortcuts.get(index1) : null;
+        String item2 = (index2 < totalItems) ? shortcuts.get(index2) : null;
+
+        boolean isAntigravityPage = (item1 != null && item1.toLowerCase().contains("antigravity")) ||
+                                   (item2 != null && item2.toLowerCase().contains("antigravity"));
+        boolean isPortafolioPage = (item1 != null && item1.toLowerCase().contains("portafolio")) ||
+                                  (item2 != null && item2.toLowerCase().contains("portafolio"));
+
+        if (isAntigravityPage) {
+            views.setTextViewText(R.id.txt_category, "🪐 ANTIGRAVITY (Puerto 3000)");
+            views.setViewVisibility(R.id.txt_status, View.VISIBLE);
+            views.setTextViewText(R.id.txt_status, "🟡 Verificando...");
+            views.setTextColor(R.id.txt_status, 0xFFF59E0B);
+            checkAntigravityStatus(context);
+        } else if (isPortafolioPage) {
+            views.setTextViewText(R.id.txt_category, "🌐 PORTAFOLIO WEB");
+            views.setViewVisibility(R.id.txt_status, View.VISIBLE);
+            views.setTextViewText(R.id.txt_status, "🟡 Verificando...");
+            views.setTextColor(R.id.txt_status, 0xFFF59E0B);
+            checkPortafolioStatus(context);
+        } else {
+            views.setTextViewText(R.id.txt_category, "⚡ SCRIPTS ACTIVOS (" + totalItems + ")");
+            views.setViewVisibility(R.id.txt_status, View.GONE);
+        }
+
+        if (item1 != null) {
             setupButton(views, R.id.btn_action_1, item1);
             views.setViewVisibility(R.id.btn_action_1, View.VISIBLE);
 
             Intent click1 = new Intent(context, AndreyWidgetProvider.class);
             click1.setAction(ACTION_CLICK_1);
             click1.putExtra("item", item1);
+            click1.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
             views.setOnClickPendingIntent(R.id.btn_action_1, PendingIntent.getBroadcast(context, appWidgetId * 10 + 3, click1, flags));
         } else {
             views.setViewVisibility(R.id.btn_action_1, View.GONE);
         }
 
-        if (index2 < totalItems) {
-            String item2 = shortcuts.get(index2);
+        if (item2 != null) {
             setupButton(views, R.id.btn_action_2, item2);
             views.setViewVisibility(R.id.btn_action_2, View.VISIBLE);
 
             Intent click2 = new Intent(context, AndreyWidgetProvider.class);
             click2.setAction(ACTION_CLICK_2);
             click2.putExtra("item", item2);
+            click2.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
             views.setOnClickPendingIntent(R.id.btn_action_2, PendingIntent.getBroadcast(context, appWidgetId * 10 + 4, click2, flags));
         } else {
             views.setViewVisibility(R.id.btn_action_2, View.GONE);
@@ -113,7 +149,23 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
         String clean = item.replace(".sh", "");
         String lower = clean.toLowerCase();
 
-        if (lower.contains("encender") || lower.contains("start")) {
+        if (lower.contains("encender_antigravity") || lower.contains("start_antigravity")) {
+            views.setTextViewText(btnId, "🚀 Iniciar Antigravity");
+            views.setInt(btnId, "setBackgroundResource", R.drawable.btn_start_bg);
+            views.setTextColor(btnId, 0xFFFFFFFF);
+        } else if (lower.contains("apagar_antigravity") || lower.contains("stop_antigravity")) {
+            views.setTextViewText(btnId, "🛑 Apagar Antigravity");
+            views.setInt(btnId, "setBackgroundResource", R.drawable.btn_stop_bg);
+            views.setTextColor(btnId, 0xFFFF5F56);
+        } else if (lower.contains("encender_portafolio")) {
+            views.setTextViewText(btnId, "🚀 Iniciar Portafolio");
+            views.setInt(btnId, "setBackgroundResource", R.drawable.btn_start_bg);
+            views.setTextColor(btnId, 0xFFFFFFFF);
+        } else if (lower.contains("apagar_portafolio")) {
+            views.setTextViewText(btnId, "🛑 Apagar Portafolio");
+            views.setInt(btnId, "setBackgroundResource", R.drawable.btn_stop_bg);
+            views.setTextColor(btnId, 0xFFFF5F56);
+        } else if (lower.contains("encender") || lower.contains("start")) {
             views.setTextViewText(btnId, "🚀 " + clean);
             views.setInt(btnId, "setBackgroundResource", R.drawable.btn_start_bg);
             views.setTextColor(btnId, 0xFFFFFFFF);
@@ -122,17 +174,17 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
             views.setInt(btnId, "setBackgroundResource", R.drawable.btn_stop_bg);
             views.setTextColor(btnId, 0xFFFF5F56);
         } else if (lower.contains("opencode")) {
-            views.setTextViewText(btnId, "💻 " + clean);
+            views.setTextViewText(btnId, "💻 OpenCode");
             views.setInt(btnId, "setBackgroundResource", R.drawable.btn_neutral_bg);
             views.setTextColor(btnId, 0xFF8FA0FF);
         } else if (lower.contains("ubuntu")) {
-            views.setTextViewText(btnId, "🐧 " + clean);
+            views.setTextViewText(btnId, "🐧 Ubuntu Code");
             views.setInt(btnId, "setBackgroundResource", R.drawable.btn_neutral_bg);
             views.setTextColor(btnId, 0xFFEEF1F8);
-        } else if (lower.contains("antigravity")) {
-            views.setTextViewText(btnId, "🪐 " + clean);
+        } else if (lower.contains("termux")) {
+            views.setTextViewText(btnId, "📟 Termux Main");
             views.setInt(btnId, "setBackgroundResource", R.drawable.btn_neutral_bg);
-            views.setTextColor(btnId, 0xFFB8F2E6);
+            views.setTextColor(btnId, 0xFFEEF1F8);
         } else {
             views.setTextViewText(btnId, "⚡ " + clean);
             views.setInt(btnId, "setBackgroundResource", R.drawable.btn_neutral_bg);
@@ -152,7 +204,6 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
             } catch (JSONException ignored) {}
         }
         if (list.isEmpty()) {
-            // Valores por defecto iniciales incluyendo tus nuevos scripts de antigravity
             list.add("encender_portafolio.sh");
             list.add("apagar_portafolio.sh");
             list.add("encender_antigravity.sh");
@@ -191,6 +242,7 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
         } else if (ACTION_REFRESH.equals(action)) {
             Toast.makeText(context, "🔄 Sincronizando scripts con Termux...", Toast.LENGTH_SHORT).show();
             requestShortcutsFromTermux(context);
+            checkAntigravityStatus(context);
         } else if (ACTION_UPDATE_LIST.equals(action)) {
             String listStr = intent.getStringExtra("shortcuts");
             if (listStr != null) {
@@ -214,19 +266,183 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
         } else if (ACTION_CLICK_1.equals(action) || ACTION_CLICK_2.equals(action)) {
             String item = intent.getStringExtra("item");
             if (item != null) {
-                Toast.makeText(context, "⚡ " + item, Toast.LENGTH_SHORT).show();
-                String cmd = "f=\"$HOME/.shortcuts/" + item + "\"; [ -f \"$f\" ] && bash \"$f\"";
-                runInTermux(context, cmd);
+                handleItemClick(context, item);
             }
         }
     }
 
-    private static void requestShortcutsFromTermux(Context context) {
-        String cmd = "list=$(ls -1 \"$HOME/.shortcuts\" 2>/dev/null); am broadcast -a com.andrey.widget.UPDATE_LIST --es shortcuts \"$list\"";
-        runInTermux(context, cmd);
+    private static void handleItemClick(Context context, String item) {
+        String lower = item.toLowerCase();
+        copyToClipboard(context, "bash ~/.shortcuts/" + item);
+
+        if (lower.contains("antigravity")) {
+            if (lower.contains("encender") || lower.contains("start")) {
+                runShortcutInTermux(context, item);
+                Toast.makeText(context, "🚀 Iniciando Antigravity...\n(Copiado a portapapeles)", Toast.LENGTH_SHORT).show();
+                updateStatusBadge(context, "🟡 Iniciando...", 0xFFF59E0B);
+                scheduleStatusCheck(context, 1500, true);
+            } else if (lower.contains("apagar") || lower.contains("stop")) {
+                sendPostShutdown();
+                runShortcutInTermux(context, item);
+                Toast.makeText(context, "🛑 Apagando Antigravity...\n(Copiado a portapapeles)", Toast.LENGTH_SHORT).show();
+                updateStatusBadge(context, "🟡 Apagando...", 0xFFF59E0B);
+                scheduleStatusCheck(context, 1500, true);
+            } else {
+                runShortcutInTermux(context, item);
+                Toast.makeText(context, "⚡ " + item, Toast.LENGTH_SHORT).show();
+            }
+        } else if (lower.contains("portafolio")) {
+            runShortcutInTermux(context, item);
+            if (lower.contains("encender") || lower.contains("start")) {
+                Toast.makeText(context, "🚀 Iniciando Portafolio Web...", Toast.LENGTH_SHORT).show();
+                updateStatusBadge(context, "🟡 Iniciando...", 0xFFF59E0B);
+                scheduleStatusCheck(context, 1500, false);
+            } else {
+                Toast.makeText(context, "🛑 Deteniendo Portafolio...", Toast.LENGTH_SHORT).show();
+                updateStatusBadge(context, "🟡 Apagando...", 0xFFF59E0B);
+                scheduleStatusCheck(context, 1500, false);
+            }
+        } else {
+            runShortcutInTermux(context, item);
+            Toast.makeText(context, "⚡ " + item + "\n(Copiado a portapapeles)", Toast.LENGTH_SHORT).show();
+        }
     }
 
-    private static void runInTermux(Context context, String command) {
+    private static void scheduleStatusCheck(Context context, long delayMs, boolean isAntigravity) {
+        mainHandler.postDelayed(() -> {
+            if (isAntigravity) {
+                checkAntigravityStatus(context);
+            } else {
+                checkPortafolioStatus(context);
+            }
+        }, delayMs);
+    }
+
+    private static void copyToClipboard(Context context, String text) {
+        try {
+            ClipboardManager cm = (ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
+            if (cm != null) {
+                ClipData clip = ClipData.newPlainText("Termux Command", text);
+                cm.setPrimaryClip(clip);
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private static void sendPostShutdown() {
+        executor.execute(() -> {
+            try {
+                URL url = new URL("http://127.0.0.1:3000/api/shutdown");
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setConnectTimeout(1000);
+                conn.setReadTimeout(1000);
+                conn.setDoOutput(true);
+                conn.getOutputStream().write(new byte[0]);
+                conn.getResponseCode();
+                conn.disconnect();
+            } catch (Exception ignored) {}
+        });
+    }
+
+    private static void checkAntigravityStatus(Context context) {
+        executor.execute(() -> {
+            boolean active = false;
+            try {
+                URL url = new URL("http://127.0.0.1:3000/api/status");
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setConnectTimeout(1200);
+                conn.setReadTimeout(1200);
+                int code = conn.getResponseCode();
+                if (code == 200) {
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                    StringBuilder sb = new StringBuilder();
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        sb.append(line);
+                    }
+                    reader.close();
+                    String res = sb.toString();
+                    if (res.contains("\"ok\":true") || res.contains("\"status\":\"online\"") || res.contains("true")) {
+                        active = true;
+                    }
+                }
+                conn.disconnect();
+            } catch (Exception e) {
+                active = false;
+            }
+
+            final boolean isOnline = active;
+            mainHandler.post(() -> {
+                updateStatusBadge(context, isOnline ? "🟢 Activo" : "🔴 Inactivo", isOnline ? 0xFF10B981 : 0xFFFF5F56);
+            });
+        });
+    }
+
+    private static void checkPortafolioStatus(Context context) {
+        executor.execute(() -> {
+            boolean active = false;
+            try {
+                URL url = new URL("http://127.0.0.1:8081");
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setConnectTimeout(1000);
+                conn.setReadTimeout(1000);
+                int code = conn.getResponseCode();
+                if (code > 0) {
+                    active = true;
+                }
+                conn.disconnect();
+            } catch (Exception e) {
+                active = false;
+            }
+
+            final boolean isOnline = active;
+            mainHandler.post(() -> {
+                updateStatusBadge(context, isOnline ? "🟢 Activo (8081)" : "🔴 Inactivo", isOnline ? 0xFF10B981 : 0xFFFF5F56);
+            });
+        });
+    }
+
+    private static void updateStatusBadge(Context context, String text, int color) {
+        try {
+            AppWidgetManager mgr = AppWidgetManager.getInstance(context);
+            ComponentName cn = new ComponentName(context, AndreyWidgetProvider.class);
+            int[] ids = mgr.getAppWidgetIds(cn);
+            for (int id : ids) {
+                RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_layout);
+                views.setViewVisibility(R.id.txt_status, View.VISIBLE);
+                views.setTextViewText(R.id.txt_status, text);
+                views.setTextColor(R.id.txt_status, color);
+                mgr.partiallyUpdateAppWidget(id, views);
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private static void requestShortcutsFromTermux(Context context) {
+        String cmd = "list=$(ls -1 \"$HOME/.shortcuts\" 2>/dev/null); am broadcast -a com.andrey.widget.UPDATE_LIST --es shortcuts \"$list\"";
+        runInTermuxCommand(context, cmd);
+    }
+
+    private static void runShortcutInTermux(Context context, String shortcutName) {
+        try {
+            Intent intent = new Intent();
+            intent.setClassName("com.termux", "com.termux.app.RunCommandService");
+            intent.setAction("com.termux.RUN_COMMAND");
+            intent.putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/home/.shortcuts/" + shortcutName);
+            intent.putExtra("com.termux.RUN_COMMAND_BACKGROUND", true);
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent);
+            } else {
+                context.startService(intent);
+            }
+        } catch (Exception e) {
+            runInTermuxCommand(context, "bash \"$HOME/.shortcuts/" + shortcutName + "\"");
+        }
+    }
+
+    private static void runInTermuxCommand(Context context, String command) {
         try {
             Intent intent = new Intent();
             intent.setClassName("com.termux", "com.termux.app.RunCommandService");

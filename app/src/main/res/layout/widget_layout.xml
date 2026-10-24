@@ -13,7 +13,7 @@
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:layout_marginBottom="10dp">
+        android:layout_marginBottom="8dp">
 
         <TextView
             android:id="@+id/txt_title"
@@ -59,16 +59,34 @@
             android:textStyle="bold" />
     </LinearLayout>
 
-    <!-- Subtítulo dinámico -->
-    <TextView
-        android:id="@+id/txt_category"
+    <!-- Subtítulo dinámico con indicador de estado a la derecha -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="ACCIONES DETECTADAS"
-        android:textColor="#8FA0FF"
-        android:textSize="10sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="8dp" />
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:layout_marginBottom="8dp">
+
+        <TextView
+            android:id="@+id/txt_category"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="ACCIONES DETECTADAS"
+            android:textColor="#8FA0FF"
+            android:textSize="10sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/txt_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🟢 Activo"
+            android:textColor="#10B981"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+    </LinearLayout>
 
     <!-- Botón 1 -->
     <TextView

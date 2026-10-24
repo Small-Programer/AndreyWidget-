@@ -38,6 +38,9 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
     public static final String ACTION_UPDATE_LIST = "com.andrey.widget.UPDATE_LIST";
 
     private static final int ITEMS_PER_PAGE = 2;
+    private static final long COOLDOWN_MS = 2000;
+    private static long lastActionTime = 0;
+
     private static final ExecutorService executor = Executors.newSingleThreadExecutor();
     private static final Handler mainHandler = new Handler(Looper.getMainLooper());
 
@@ -102,14 +105,14 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
         if (isAntigravityPage) {
             views.setTextViewText(R.id.txt_category, "🪐 ANTIGRAVITY (Puerto 3000)");
             views.setViewVisibility(R.id.txt_status, View.VISIBLE);
-            views.setTextViewText(R.id.txt_status, "🟡 Verificando...");
-            views.setTextColor(R.id.txt_status, 0xFFF59E0B);
+            String agState = prefs.getString("antigravity_status", "UNKNOWN");
+            renderStatusBadge(views, agState);
             checkAntigravityStatus(context);
         } else if (isPortafolioPage) {
             views.setTextViewText(R.id.txt_category, "🌐 PORTAFOLIO WEB");
             views.setViewVisibility(R.id.txt_status, View.VISIBLE);
-            views.setTextViewText(R.id.txt_status, "🟡 Verificando...");
-            views.setTextColor(R.id.txt_status, 0xFFF59E0B);
+            String pfState = prefs.getString("portafolio_status", "UNKNOWN");
+            renderStatusBadge(views, pfState);
             checkPortafolioStatus(context);
         } else {
             views.setTextViewText(R.id.txt_category, "⚡ SCRIPTS ACTIVOS (" + totalItems + ")");
@@ -117,7 +120,7 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
         }
 
         if (item1 != null) {
-            setupButton(views, R.id.btn_action_1, item1);
+            setupButton(context, prefs, views, R.id.btn_action_1, item1);
             views.setViewVisibility(R.id.btn_action_1, View.VISIBLE);
 
             Intent click1 = new Intent(context, AndreyWidgetProvider.class);
@@ -130,7 +133,7 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
         }
 
         if (item2 != null) {
-            setupButton(views, R.id.btn_action_2, item2);
+            setupButton(context, prefs, views, R.id.btn_action_2, item2);
             views.setViewVisibility(R.id.btn_action_2, View.VISIBLE);
 
             Intent click2 = new Intent(context, AndreyWidgetProvider.class);
@@ -145,26 +148,91 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
         appWidgetManager.updateAppWidget(appWidgetId, views);
     }
 
-    private static void setupButton(RemoteViews views, int btnId, String item) {
+    private static void renderStatusBadge(RemoteViews views, String state) {
+        if ("ONLINE".equals(state)) {
+            views.setTextViewText(R.id.txt_status, "🟢 Activo");
+            views.setTextColor(R.id.txt_status, 0xFF10B981);
+        } else if ("OFFLINE".equals(state)) {
+            views.setTextViewText(R.id.txt_status, "🔴 Inactivo");
+            views.setTextColor(R.id.txt_status, 0xFFFF5F56);
+        } else if ("STARTING".equals(state)) {
+            views.setTextViewText(R.id.txt_status, "🟡 Iniciando...");
+            views.setTextColor(R.id.txt_status, 0xFFF59E0B);
+        } else if ("STOPPING".equals(state)) {
+            views.setTextViewText(R.id.txt_status, "🟡 Apagando...");
+            views.setTextColor(R.id.txt_status, 0xFFF59E0B);
+        } else {
+            views.setTextViewText(R.id.txt_status, "🟡 Verificando...");
+            views.setTextColor(R.id.txt_status, 0xFFF59E0B);
+        }
+    }
+
+    private static void setupButton(Context context, SharedPreferences prefs, RemoteViews views, int btnId, String item) {
         String clean = item.replace(".sh", "");
         String lower = clean.toLowerCase();
 
-        if (lower.contains("encender_antigravity") || lower.contains("start_antigravity")) {
-            views.setTextViewText(btnId, "🚀 Iniciar Antigravity");
-            views.setInt(btnId, "setBackgroundResource", R.drawable.btn_start_bg);
-            views.setTextColor(btnId, 0xFFFFFFFF);
-        } else if (lower.contains("apagar_antigravity") || lower.contains("stop_antigravity")) {
-            views.setTextViewText(btnId, "🛑 Apagar Antigravity");
-            views.setInt(btnId, "setBackgroundResource", R.drawable.btn_stop_bg);
-            views.setTextColor(btnId, 0xFFFF5F56);
-        } else if (lower.contains("encender_portafolio")) {
-            views.setTextViewText(btnId, "🚀 Iniciar Portafolio");
-            views.setInt(btnId, "setBackgroundResource", R.drawable.btn_start_bg);
-            views.setTextColor(btnId, 0xFFFFFFFF);
-        } else if (lower.contains("apagar_portafolio")) {
-            views.setTextViewText(btnId, "🛑 Apagar Portafolio");
-            views.setInt(btnId, "setBackgroundResource", R.drawable.btn_stop_bg);
-            views.setTextColor(btnId, 0xFFFF5F56);
+        if (lower.contains("antigravity")) {
+            String state = prefs.getString("antigravity_status", "UNKNOWN");
+            if (lower.contains("encender") || lower.contains("start")) {
+                if ("ONLINE".equals(state)) {
+                    views.setTextViewText(btnId, "✔ Antigravity En Línea");
+                    views.setInt(btnId, "setBackgroundResource", R.drawable.btn_neutral_bg);
+                    views.setTextColor(btnId, 0xFF7A889B);
+                } else if ("STARTING".equals(state)) {
+                    views.setTextViewText(btnId, "⏳ Iniciando Antigravity...");
+                    views.setInt(btnId, "setBackgroundResource", R.drawable.btn_neutral_bg);
+                    views.setTextColor(btnId, 0xFFF59E0B);
+                } else {
+                    views.setTextViewText(btnId, "🚀 Iniciar Antigravity");
+                    views.setInt(btnId, "setBackgroundResource", R.drawable.btn_start_bg);
+                    views.setTextColor(btnId, 0xFFFFFFFF);
+                }
+            } else if (lower.contains("apagar") || lower.contains("stop")) {
+                if ("OFFLINE".equals(state)) {
+                    views.setTextViewText(btnId, "✔ Antigravity Detenido");
+                    views.setInt(btnId, "setBackgroundResource", R.drawable.btn_neutral_bg);
+                    views.setTextColor(btnId, 0xFF7A889B);
+                } else if ("STOPPING".equals(state)) {
+                    views.setTextViewText(btnId, "⏳ Apagando Antigravity...");
+                    views.setInt(btnId, "setBackgroundResource", R.drawable.btn_neutral_bg);
+                    views.setTextColor(btnId, 0xFFF59E0B);
+                } else {
+                    views.setTextViewText(btnId, "🛑 Apagar Antigravity");
+                    views.setInt(btnId, "setBackgroundResource", R.drawable.btn_stop_bg);
+                    views.setTextColor(btnId, 0xFFFF5F56);
+                }
+            }
+        } else if (lower.contains("portafolio")) {
+            String state = prefs.getString("portafolio_status", "UNKNOWN");
+            if (lower.contains("encender") || lower.contains("start")) {
+                if ("ONLINE".equals(state)) {
+                    views.setTextViewText(btnId, "✔ Portafolio En Línea");
+                    views.setInt(btnId, "setBackgroundResource", R.drawable.btn_neutral_bg);
+                    views.setTextColor(btnId, 0xFF7A889B);
+                } else if ("STARTING".equals(state)) {
+                    views.setTextViewText(btnId, "⏳ Iniciando Portafolio...");
+                    views.setInt(btnId, "setBackgroundResource", R.drawable.btn_neutral_bg);
+                    views.setTextColor(btnId, 0xFFF59E0B);
+                } else {
+                    views.setTextViewText(btnId, "🚀 Iniciar Portafolio");
+                    views.setInt(btnId, "setBackgroundResource", R.drawable.btn_start_bg);
+                    views.setTextColor(btnId, 0xFFFFFFFF);
+                }
+            } else if (lower.contains("apagar") || lower.contains("stop")) {
+                if ("OFFLINE".equals(state)) {
+                    views.setTextViewText(btnId, "✔ Portafolio Detenido");
+                    views.setInt(btnId, "setBackgroundResource", R.drawable.btn_neutral_bg);
+                    views.setTextColor(btnId, 0xFF7A889B);
+                } else if ("STOPPING".equals(state)) {
+                    views.setTextViewText(btnId, "⏳ Apagando Portafolio...");
+                    views.setInt(btnId, "setBackgroundResource", R.drawable.btn_neutral_bg);
+                    views.setTextColor(btnId, 0xFFF59E0B);
+                } else {
+                    views.setTextViewText(btnId, "🛑 Apagar Portafolio");
+                    views.setInt(btnId, "setBackgroundResource", R.drawable.btn_stop_bg);
+                    views.setTextColor(btnId, 0xFFFF5F56);
+                }
+            }
         } else if (lower.contains("encender") || lower.contains("start")) {
             views.setTextViewText(btnId, "🚀 " + clean);
             views.setInt(btnId, "setBackgroundResource", R.drawable.btn_start_bg);
@@ -243,6 +311,7 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
             Toast.makeText(context, "🔄 Sincronizando scripts con Termux...", Toast.LENGTH_SHORT).show();
             requestShortcutsFromTermux(context);
             checkAntigravityStatus(context);
+            checkPortafolioStatus(context);
         } else if (ACTION_UPDATE_LIST.equals(action)) {
             String listStr = intent.getStringExtra("shortcuts");
             if (listStr != null) {
@@ -255,12 +324,7 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
                     }
                 }
                 prefs.edit().putString("shortcuts_json", arr.toString()).apply();
-                AppWidgetManager mgr = AppWidgetManager.getInstance(context);
-                ComponentName cn = new ComponentName(context, AndreyWidgetProvider.class);
-                int[] ids = mgr.getAppWidgetIds(cn);
-                for (int id : ids) {
-                    updateWidget(context, mgr, id);
-                }
+                refreshAllWidgets(context);
                 Toast.makeText(context, "✔ " + arr.length() + " scripts sincronizados", Toast.LENGTH_SHORT).show();
             }
         } else if (ACTION_CLICK_1.equals(action) || ACTION_CLICK_2.equals(action)) {
@@ -272,37 +336,93 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
     }
 
     private static void handleItemClick(Context context, String item) {
+        long now = System.currentTimeMillis();
+        if (now - lastActionTime < COOLDOWN_MS) {
+            Toast.makeText(context, "⏳ Procesando... espera un momento", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        SharedPreferences prefs = context.getSharedPreferences("widget_prefs", Context.MODE_PRIVATE);
         String lower = item.toLowerCase();
         copyToClipboard(context, "bash ~/.shortcuts/" + item);
 
         if (lower.contains("antigravity")) {
+            String currentState = prefs.getString("antigravity_status", "UNKNOWN");
             if (lower.contains("encender") || lower.contains("start")) {
+                if ("ONLINE".equals(currentState)) {
+                    Toast.makeText(context, "ℹ️ Antigravity ya está encendido 🟢", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                if ("STARTING".equals(currentState)) {
+                    Toast.makeText(context, "⏳ Antigravity ya está iniciando...", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                lastActionTime = now;
+                prefs.edit().putString("antigravity_status", "STARTING").apply();
+                refreshAllWidgets(context);
                 runShortcutInTermux(context, item);
                 Toast.makeText(context, "🚀 Iniciando Antigravity...\n(Copiado a portapapeles)", Toast.LENGTH_SHORT).show();
-                updateStatusBadge(context, "🟡 Iniciando...", 0xFFF59E0B);
-                scheduleStatusCheck(context, 1500, true);
+                scheduleStatusCheck(context, 1600, true);
             } else if (lower.contains("apagar") || lower.contains("stop")) {
+                if ("OFFLINE".equals(currentState)) {
+                    Toast.makeText(context, "ℹ️ Antigravity ya está apagado 🔴", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                if ("STOPPING".equals(currentState)) {
+                    Toast.makeText(context, "⏳ Antigravity ya está apagándose...", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                lastActionTime = now;
+                prefs.edit().putString("antigravity_status", "STOPPING").apply();
+                refreshAllWidgets(context);
                 sendPostShutdown();
                 runShortcutInTermux(context, item);
                 Toast.makeText(context, "🛑 Apagando Antigravity...\n(Copiado a portapapeles)", Toast.LENGTH_SHORT).show();
-                updateStatusBadge(context, "🟡 Apagando...", 0xFFF59E0B);
-                scheduleStatusCheck(context, 1500, true);
+                scheduleStatusCheck(context, 1600, true);
             } else {
+                lastActionTime = now;
                 runShortcutInTermux(context, item);
                 Toast.makeText(context, "⚡ " + item, Toast.LENGTH_SHORT).show();
             }
         } else if (lower.contains("portafolio")) {
-            runShortcutInTermux(context, item);
+            String currentState = prefs.getString("portafolio_status", "UNKNOWN");
             if (lower.contains("encender") || lower.contains("start")) {
+                if ("ONLINE".equals(currentState)) {
+                    Toast.makeText(context, "ℹ️ Portafolio ya está encendido 🟢", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                if ("STARTING".equals(currentState)) {
+                    Toast.makeText(context, "⏳ Portafolio ya está iniciando...", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                lastActionTime = now;
+                prefs.edit().putString("portafolio_status", "STARTING").apply();
+                refreshAllWidgets(context);
+                runShortcutInTermux(context, item);
                 Toast.makeText(context, "🚀 Iniciando Portafolio Web...", Toast.LENGTH_SHORT).show();
-                updateStatusBadge(context, "🟡 Iniciando...", 0xFFF59E0B);
-                scheduleStatusCheck(context, 1500, false);
-            } else {
+                scheduleStatusCheck(context, 1600, false);
+            } else if (lower.contains("apagar") || lower.contains("stop")) {
+                if ("OFFLINE".equals(currentState)) {
+                    Toast.makeText(context, "ℹ️ Portafolio ya está apagado 🔴", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                if ("STOPPING".equals(currentState)) {
+                    Toast.makeText(context, "⏳ Portafolio ya está apagándose...", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                lastActionTime = now;
+                prefs.edit().putString("portafolio_status", "STOPPING").apply();
+                refreshAllWidgets(context);
+                runShortcutInTermux(context, item);
                 Toast.makeText(context, "🛑 Deteniendo Portafolio...", Toast.LENGTH_SHORT).show();
-                updateStatusBadge(context, "🟡 Apagando...", 0xFFF59E0B);
-                scheduleStatusCheck(context, 1500, false);
+                scheduleStatusCheck(context, 1600, false);
+            } else {
+                lastActionTime = now;
+                runShortcutInTermux(context, item);
+                Toast.makeText(context, "⚡ " + item, Toast.LENGTH_SHORT).show();
             }
         } else {
+            lastActionTime = now;
             runShortcutInTermux(context, item);
             Toast.makeText(context, "⚡ " + item + "\n(Copiado a portapapeles)", Toast.LENGTH_SHORT).show();
         }
@@ -372,9 +492,16 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
                 active = false;
             }
 
-            final boolean isOnline = active;
+            final String state = active ? "ONLINE" : "OFFLINE";
             mainHandler.post(() -> {
-                updateStatusBadge(context, isOnline ? "🟢 Activo" : "🔴 Inactivo", isOnline ? 0xFF10B981 : 0xFFFF5F56);
+                SharedPreferences prefs = context.getSharedPreferences("widget_prefs", Context.MODE_PRIVATE);
+                String oldState = prefs.getString("antigravity_status", "UNKNOWN");
+                prefs.edit().putString("antigravity_status", state).apply();
+                if (!state.equals(oldState)) {
+                    refreshAllWidgets(context);
+                } else {
+                    updateStatusBadgeOnly(context, state);
+                }
             });
         });
     }
@@ -397,14 +524,21 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
                 active = false;
             }
 
-            final boolean isOnline = active;
+            final String state = active ? "ONLINE" : "OFFLINE";
             mainHandler.post(() -> {
-                updateStatusBadge(context, isOnline ? "🟢 Activo (8081)" : "🔴 Inactivo", isOnline ? 0xFF10B981 : 0xFFFF5F56);
+                SharedPreferences prefs = context.getSharedPreferences("widget_prefs", Context.MODE_PRIVATE);
+                String oldState = prefs.getString("portafolio_status", "UNKNOWN");
+                prefs.edit().putString("portafolio_status", state).apply();
+                if (!state.equals(oldState)) {
+                    refreshAllWidgets(context);
+                } else {
+                    updateStatusBadgeOnly(context, state);
+                }
             });
         });
     }
 
-    private static void updateStatusBadge(Context context, String text, int color) {
+    private static void updateStatusBadgeOnly(Context context, String state) {
         try {
             AppWidgetManager mgr = AppWidgetManager.getInstance(context);
             ComponentName cn = new ComponentName(context, AndreyWidgetProvider.class);
@@ -412,9 +546,19 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
             for (int id : ids) {
                 RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_layout);
                 views.setViewVisibility(R.id.txt_status, View.VISIBLE);
-                views.setTextViewText(R.id.txt_status, text);
-                views.setTextColor(R.id.txt_status, color);
+                renderStatusBadge(views, state);
                 mgr.partiallyUpdateAppWidget(id, views);
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private static void refreshAllWidgets(Context context) {
+        try {
+            AppWidgetManager mgr = AppWidgetManager.getInstance(context);
+            ComponentName cn = new ComponentName(context, AndreyWidgetProvider.class);
+            int[] ids = mgr.getAppWidgetIds(cn);
+            for (int id : ids) {
+                updateWidget(context, mgr, id);
             }
         } catch (Exception ignored) {}
     }

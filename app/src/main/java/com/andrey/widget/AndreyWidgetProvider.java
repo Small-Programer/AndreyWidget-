@@ -155,8 +155,8 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
         } else if ("OFFLINE".equals(state)) {
             views.setTextViewText(R.id.txt_status, "🔴 Inactivo");
             views.setTextColor(R.id.txt_status, 0xFFFF5F56);
-        } else if ("STARTING".equals(state)) {
-            views.setTextViewText(R.id.txt_status, "🟡 Iniciando...");
+        } else if ("STARTING".equals(state) || "RESTARTING".equals(state)) {
+            views.setTextViewText(R.id.txt_status, "🟡 Actualizando...");
             views.setTextColor(R.id.txt_status, 0xFFF59E0B);
         } else if ("STOPPING".equals(state)) {
             views.setTextViewText(R.id.txt_status, "🟡 Apagando...");
@@ -173,13 +173,13 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
 
         if (lower.contains("antigravity")) {
             String state = prefs.getString("antigravity_status", "UNKNOWN");
-            if (lower.contains("encender") || lower.contains("start")) {
+            if (lower.contains("encender") || lower.contains("start") || lower.contains("reiniciar")) {
                 if ("ONLINE".equals(state)) {
-                    views.setTextViewText(btnId, "✔ Antigravity En Línea");
-                    views.setInt(btnId, "setBackgroundResource", R.drawable.btn_neutral_bg);
-                    views.setTextColor(btnId, 0xFF7A889B);
-                } else if ("STARTING".equals(state)) {
-                    views.setTextViewText(btnId, "⏳ Iniciando Antigravity...");
+                    views.setTextViewText(btnId, "🔄 Reiniciar / Actualizar");
+                    views.setInt(btnId, "setBackgroundResource", R.drawable.btn_start_bg);
+                    views.setTextColor(btnId, 0xFFFFFFFF);
+                } else if ("STARTING".equals(state) || "RESTARTING".equals(state)) {
+                    views.setTextViewText(btnId, "⏳ Actualizando Antigravity...");
                     views.setInt(btnId, "setBackgroundResource", R.drawable.btn_neutral_bg);
                     views.setTextColor(btnId, 0xFFF59E0B);
                 } else {
@@ -204,13 +204,13 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
             }
         } else if (lower.contains("portafolio")) {
             String state = prefs.getString("portafolio_status", "UNKNOWN");
-            if (lower.contains("encender") || lower.contains("start")) {
+            if (lower.contains("encender") || lower.contains("start") || lower.contains("reiniciar")) {
                 if ("ONLINE".equals(state)) {
-                    views.setTextViewText(btnId, "✔ Portafolio En Línea");
-                    views.setInt(btnId, "setBackgroundResource", R.drawable.btn_neutral_bg);
-                    views.setTextColor(btnId, 0xFF7A889B);
-                } else if ("STARTING".equals(state)) {
-                    views.setTextViewText(btnId, "⏳ Iniciando Portafolio...");
+                    views.setTextViewText(btnId, "🔄 Reiniciar Portafolio");
+                    views.setInt(btnId, "setBackgroundResource", R.drawable.btn_start_bg);
+                    views.setTextColor(btnId, 0xFFFFFFFF);
+                } else if ("STARTING".equals(state) || "RESTARTING".equals(state)) {
+                    views.setTextViewText(btnId, "⏳ Reiniciando Portafolio...");
                     views.setInt(btnId, "setBackgroundResource", R.drawable.btn_neutral_bg);
                     views.setTextColor(btnId, 0xFFF59E0B);
                 } else {
@@ -348,12 +348,20 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
 
         if (lower.contains("antigravity")) {
             String currentState = prefs.getString("antigravity_status", "UNKNOWN");
-            if (lower.contains("encender") || lower.contains("start")) {
+            if (lower.contains("encender") || lower.contains("start") || lower.contains("reiniciar")) {
                 if ("ONLINE".equals(currentState)) {
-                    Toast.makeText(context, "ℹ️ Antigravity ya está encendido 🟢", Toast.LENGTH_SHORT).show();
+                    // ¡Antigravity ya está encendido! Tocar el botón fuerza REINICIO Y ACTUALIZACIÓN
+                    lastActionTime = now;
+                    prefs.edit().putString("antigravity_status", "RESTARTING").apply();
+                    refreshAllWidgets(context);
+                    sendPostShutdown();
+                    copyToClipboard(context, "bash ~/.shortcuts/reiniciar_antigravity.sh");
+                    runRestartAntigravity(context);
+                    Toast.makeText(context, "🔄 Reiniciando y actualizando Antigravity...\n(Copiado a portapapeles)", Toast.LENGTH_SHORT).show();
+                    scheduleStatusCheck(context, 2200, true);
                     return;
                 }
-                if ("STARTING".equals(currentState)) {
+                if ("STARTING".equals(currentState) || "RESTARTING".equals(currentState)) {
                     Toast.makeText(context, "⏳ Antigravity ya está iniciando...", Toast.LENGTH_SHORT).show();
                     return;
                 }
@@ -362,7 +370,7 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
                 refreshAllWidgets(context);
                 runShortcutInTermux(context, item);
                 Toast.makeText(context, "🚀 Iniciando Antigravity...\n(Copiado a portapapeles)", Toast.LENGTH_SHORT).show();
-                scheduleStatusCheck(context, 1600, true);
+                scheduleStatusCheck(context, 1800, true);
             } else if (lower.contains("apagar") || lower.contains("stop")) {
                 if ("OFFLINE".equals(currentState)) {
                     Toast.makeText(context, "ℹ️ Antigravity ya está apagado 🔴", Toast.LENGTH_SHORT).show();
@@ -378,7 +386,7 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
                 sendPostShutdown();
                 runShortcutInTermux(context, item);
                 Toast.makeText(context, "🛑 Apagando Antigravity...\n(Copiado a portapapeles)", Toast.LENGTH_SHORT).show();
-                scheduleStatusCheck(context, 1600, true);
+                scheduleStatusCheck(context, 1800, true);
             } else {
                 lastActionTime = now;
                 runShortcutInTermux(context, item);
@@ -386,12 +394,17 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
             }
         } else if (lower.contains("portafolio")) {
             String currentState = prefs.getString("portafolio_status", "UNKNOWN");
-            if (lower.contains("encender") || lower.contains("start")) {
+            if (lower.contains("encender") || lower.contains("start") || lower.contains("reiniciar")) {
                 if ("ONLINE".equals(currentState)) {
-                    Toast.makeText(context, "ℹ️ Portafolio ya está encendido 🟢", Toast.LENGTH_SHORT).show();
+                    lastActionTime = now;
+                    prefs.edit().putString("portafolio_status", "RESTARTING").apply();
+                    refreshAllWidgets(context);
+                    runShortcutInTermux(context, item);
+                    Toast.makeText(context, "🔄 Reiniciando Portafolio Web...", Toast.LENGTH_SHORT).show();
+                    scheduleStatusCheck(context, 1800, false);
                     return;
                 }
-                if ("STARTING".equals(currentState)) {
+                if ("STARTING".equals(currentState) || "RESTARTING".equals(currentState)) {
                     Toast.makeText(context, "⏳ Portafolio ya está iniciando...", Toast.LENGTH_SHORT).show();
                     return;
                 }
@@ -400,7 +413,7 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
                 refreshAllWidgets(context);
                 runShortcutInTermux(context, item);
                 Toast.makeText(context, "🚀 Iniciando Portafolio Web...", Toast.LENGTH_SHORT).show();
-                scheduleStatusCheck(context, 1600, false);
+                scheduleStatusCheck(context, 1800, false);
             } else if (lower.contains("apagar") || lower.contains("stop")) {
                 if ("OFFLINE".equals(currentState)) {
                     Toast.makeText(context, "ℹ️ Portafolio ya está apagado 🔴", Toast.LENGTH_SHORT).show();
@@ -415,7 +428,7 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
                 refreshAllWidgets(context);
                 runShortcutInTermux(context, item);
                 Toast.makeText(context, "🛑 Deteniendo Portafolio...", Toast.LENGTH_SHORT).show();
-                scheduleStatusCheck(context, 1600, false);
+                scheduleStatusCheck(context, 1800, false);
             } else {
                 lastActionTime = now;
                 runShortcutInTermux(context, item);
@@ -425,6 +438,25 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
             lastActionTime = now;
             runShortcutInTermux(context, item);
             Toast.makeText(context, "⚡ " + item + "\n(Copiado a portapapeles)", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private static void runRestartAntigravity(Context context) {
+        String fallbackCmd = "f=\"$HOME/.shortcuts/reiniciar_antigravity.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else curl -s -X POST http://127.0.0.1:3000/api/shutdown >/dev/null 2>&1 || true; sleep 0.4; pkill -f \"start.sh\" 2>/dev/null || true; pkill -f \"node server.js\" 2>/dev/null || true; sleep 0.4; if [ -f \"/sdcard/Download/antigravity_linux_server.zip\" ]; then unzip -uo \"/sdcard/Download/antigravity_linux_server.zip\" -d \"$HOME/antigravity_linux_server\" >/dev/null 2>&1; fi; if [ -d \"/sdcard/Download/antigravity_linux_server\" ]; then cp -ru /sdcard/Download/antigravity_linux_server/* \"$HOME/antigravity_linux_server/\" 2>/dev/null || true; fi; cd \"$HOME/antigravity_linux_server\" 2>/dev/null || exit 1; chmod +x start.sh stop.sh 2>/dev/null || true; nohup node server.js > \"$HOME/antigravity_linux_server/server.log\" 2>&1 & fi";
+        try {
+            Intent intent = new Intent();
+            intent.setClassName("com.termux", "com.termux.app.RunCommandService");
+            intent.setAction("com.termux.RUN_COMMAND");
+            intent.putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/home/.shortcuts/reiniciar_antigravity.sh");
+            intent.putExtra("com.termux.RUN_COMMAND_BACKGROUND", true);
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent);
+            } else {
+                context.startService(intent);
+            }
+        } catch (Exception e) {
+            runInTermuxCommand(context, fallbackCmd);
         }
     }
 

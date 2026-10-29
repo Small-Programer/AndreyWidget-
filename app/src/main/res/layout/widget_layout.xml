@@ -7,7 +7,7 @@
     android:orientation="vertical"
     android:padding="14dp">
 
-    <!-- Header con título, botón de refrescar y paginador rotativo -->
+    <!-- Header con título, botón de refrescar dedicado (como Termux Widget) y paginador rotativo -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -20,10 +20,22 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="⚡ Andrey Control 🔄"
+            android:text="⚡ Andrey Control"
             android:textColor="#EEF1F8"
             android:textSize="13sp"
             android:textStyle="bold" />
+
+        <!-- Botón Refrescar Dedicado idéntico al de Termux Widget -->
+        <TextView
+            android:id="@+id/btn_refresh"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:gravity="center"
+            android:text="🔄"
+            android:textColor="#8FA0FF"
+            android:textSize="13sp"
+            android:background="@drawable/btn_neutral_bg"
+            android:layout_marginEnd="6dp" />
 
         <!-- Botón página anterior -->
         <TextView
@@ -43,7 +55,7 @@
             android:layout_height="wrap_content"
             android:paddingStart="4dp"
             android:paddingEnd="4dp"
-            android:text="1/4"
+            android:text="1/1"
             android:textColor="#9AA5BD"
             android:textSize="11sp" />
 
@@ -59,7 +71,7 @@
             android:textStyle="bold" />
     </LinearLayout>
 
-    <!-- Subtítulo dinámico con indicador de estado a la derecha -->
+    <!-- Subtítulo dinámico -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -72,7 +84,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="ACCIONES DETECTADAS"
+            android:text="TERMUX SHORTCUTS"
             android:textColor="#8FA0FF"
             android:textSize="10sp"
             android:textStyle="bold" />
@@ -81,10 +93,7 @@
             android:id="@+id/txt_status"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="🟢 Activo"
-            android:textColor="#10B981"
-            android:textSize="10sp"
-            android:textStyle="bold"
+            android:text=""
             android:visibility="gone" />
     </LinearLayout>
 
@@ -96,7 +105,7 @@
         android:layout_marginBottom="6dp"
         android:background="@drawable/btn_start_bg"
         android:gravity="center"
-        android:text="🚀 Acción 1"
+        android:text="🔄 Sincronizar Shortcuts..."
         android:textColor="#FFFFFF"
         android:textSize="13sp"
         android:textStyle="bold" />

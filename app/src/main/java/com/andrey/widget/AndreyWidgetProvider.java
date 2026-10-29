@@ -30,7 +30,7 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
     public static final String ACTION_UPDATE_LIST = "com.andrey.widget.UPDATE_LIST";
 
     private static final int ITEMS_PER_PAGE = 2;
-    private static final long COOLDOWN_MS = 1200;
+    private static final long COOLDOWN_MS = 1000;
     private static long lastActionTime = 0;
 
     @Override
@@ -39,6 +39,12 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
         for (int id : appWidgetIds) {
             updateWidget(context, appWidgetManager, id);
         }
+    }
+
+    @Override
+    public void onEnabled(Context context) {
+        super.onEnabled(context);
+        requestShortcutsFromTermux(context);
     }
 
     public static void updateWidget(Context context, AppWidgetManager appWidgetManager, int appWidgetId) {
@@ -56,8 +62,6 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_layout);
         views.setTextViewText(R.id.txt_page_indicator, (page + 1) + "/" + totalPages);
         views.setTextViewText(R.id.txt_category, "TERMUX SHORTCUTS (" + totalItems + ")");
-
-        // Ocultar badge de status secundario para un diseño limpio y directo
         views.setViewVisibility(R.id.txt_status, View.GONE);
 
         int flags = PendingIntent.FLAG_UPDATE_CURRENT;
@@ -77,23 +81,23 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
         nextIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
         views.setOnClickPendingIntent(R.id.btn_next, PendingIntent.getBroadcast(context, appWidgetId * 10 + 2, nextIntent, flags));
 
-        // Botón Refrescar / Título
+        // Botón Refrescar Dedicado (🔄)
         Intent refreshIntent = new Intent(context, AndreyWidgetProvider.class);
         refreshIntent.setAction(ACTION_REFRESH);
         refreshIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
-        views.setOnClickPendingIntent(R.id.txt_title, PendingIntent.getBroadcast(context, appWidgetId * 10 + 5, refreshIntent, flags));
+        views.setOnClickPendingIntent(R.id.btn_refresh, PendingIntent.getBroadcast(context, appWidgetId * 10 + 5, refreshIntent, flags));
+        views.setOnClickPendingIntent(R.id.txt_title, PendingIntent.getBroadcast(context, appWidgetId * 10 + 6, refreshIntent, flags));
 
         // Items para la página actual
         int index1 = page * ITEMS_PER_PAGE;
         int index2 = index1 + 1;
 
         if (totalItems == 0) {
-            // Estado vacío / inicial: invita a sincronizar
             views.setTextViewText(R.id.btn_action_1, "🔄 Sincronizar con Termux...");
             views.setInt(R.id.btn_action_1, "setBackgroundResource", R.drawable.btn_start_bg);
             views.setTextColor(R.id.btn_action_1, 0xFFFFFFFF);
             views.setViewVisibility(R.id.btn_action_1, View.VISIBLE);
-            views.setOnClickPendingIntent(R.id.btn_action_1, PendingIntent.getBroadcast(context, appWidgetId * 10 + 5, refreshIntent, flags));
+            views.setOnClickPendingIntent(R.id.btn_action_1, PendingIntent.getBroadcast(context, appWidgetId * 10 + 7, refreshIntent, flags));
             views.setViewVisibility(R.id.btn_action_2, View.GONE);
         } else {
             if (index1 < totalItems) {
@@ -130,7 +134,7 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
 
     private static void setupButton(RemoteViews views, int btnId, String item) {
         String clean = item.replace(".sh", "").replace("_", " ").trim();
-        String lower = item.toLowerCase();
+        String lower = clean.toLowerCase();
 
         if (lower.contains("encender") || lower.contains("start") || lower.contains("iniciar")) {
             views.setTextViewText(btnId, "🚀 " + clean);
@@ -152,7 +156,7 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
             views.setTextViewText(btnId, "🐧 " + clean);
             views.setInt(btnId, "setBackgroundResource", R.drawable.btn_neutral_bg);
             views.setTextColor(btnId, 0xFFEEF1F8);
-        } else if (lower.contains("termux") || lower.contains("bash") || lower.contains("sh")) {
+        } else if (lower.contains("termux") || lower.contains("bash")) {
             views.setTextViewText(btnId, "📟 " + clean);
             views.setInt(btnId, "setBackgroundResource", R.drawable.btn_neutral_bg);
             views.setTextColor(btnId, 0xFFEEF1F8);
@@ -211,7 +215,7 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
             AppWidgetManager mgr = AppWidgetManager.getInstance(context);
             updateWidget(context, mgr, appWidgetId);
         } else if (ACTION_REFRESH.equals(action)) {
-            Toast.makeText(context, "🔄 Sincronizando con Termux:Widget...", Toast.LENGTH_SHORT).show();
+            Toast.makeText(context, "🔄 Escaneando ~/.shortcuts/ en Termux...", Toast.LENGTH_SHORT).show();
             requestShortcutsFromTermux(context);
         } else if (ACTION_UPDATE_LIST.equals(action)) {
             String listStr = intent.getStringExtra("shortcuts");
@@ -226,6 +230,11 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
                 }
                 prefs.edit().putString("shortcuts_json", arr.toString()).apply();
                 refreshAllWidgets(context);
+                if (arr.length() > 0) {
+                    Toast.makeText(context, "✔ " + arr.length() + " shortcuts actualizados", Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(context, "ℹ️ No se encontraron archivos en ~/.shortcuts/", Toast.LENGTH_SHORT).show();
+                }
             }
         } else if (ACTION_CLICK_1.equals(action) || ACTION_CLICK_2.equals(action)) {
             String item = intent.getStringExtra("item");
@@ -249,7 +258,7 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
         String cmd = "f=\"$HOME/.shortcuts/" + item + "\"; [ -f \"$f\" ] && bash \"$f\"";
         runInTermuxCommand(context, cmd);
 
-        // Solicitar refresco automático
+        // Actualizar lista en segundo plano
         requestShortcutsFromTermux(context);
     }
 
@@ -275,8 +284,8 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
     }
 
     public static void requestShortcutsFromTermux(Context context) {
-        // Lista todos los archivos ejecutables de ~/.shortcuts/ y los envía al widget
-        String cmd = "list=$(cd \"$HOME/.shortcuts\" 2>/dev/null && ls -1 2>/dev/null); am broadcast -a com.andrey.widget.UPDATE_LIST --es shortcuts \"$list\" >/dev/null 2>&1";
+        // Escaneo profundo de ~/.shortcuts y envío con broadcast EXPLÍCITO (bypasses Android background limit)
+        String cmd = "list=$(cd \"$HOME/.shortcuts\" 2>/dev/null && find . -maxdepth 2 -type f ! -name \".*\" ! -name \"*~\" | sed 's|^\\./||' | sort); am broadcast -p com.andrey.widget -n com.andrey.widget/.AndreyWidgetProvider -a com.andrey.widget.UPDATE_LIST --es shortcuts \"$list\" >/dev/null 2>&1";
         runInTermuxCommand(context, cmd);
     }
 

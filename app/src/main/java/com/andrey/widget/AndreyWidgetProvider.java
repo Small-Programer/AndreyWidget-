@@ -38,16 +38,23 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
 
     @Override
     public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
-        requestShortcutsFromTermux(context);
+        requestShortcutsFromTermux(context, false);
         for (int id : appWidgetIds) {
             updateWidget(context, appWidgetManager, id);
         }
     }
 
     @Override
+    public void onAppWidgetOptionsChanged(Context context, AppWidgetManager appWidgetManager, int appWidgetId, android.os.Bundle newOptions) {
+        super.onAppWidgetOptionsChanged(context, appWidgetManager, appWidgetId, newOptions);
+        requestShortcutsFromTermux(context, false);
+        updateWidget(context, appWidgetManager, appWidgetId);
+    }
+
+    @Override
     public void onEnabled(Context context) {
         super.onEnabled(context);
-        requestShortcutsFromTermux(context);
+        requestShortcutsFromTermux(context, false);
     }
 
     public static void updateWidget(Context context, AppWidgetManager appWidgetManager, int appWidgetId) {
@@ -259,7 +266,7 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
         SharedPreferences prefs = context.getSharedPreferences("widget_prefs", Context.MODE_PRIVATE);
 
         if (ACTION_PREV.equals(action) && appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
-            requestShortcutsFromTermux(context);
+            requestShortcutsFromTermux(context, false);
             List<String> shortcuts = getShortcuts(prefs);
             int totalPages = Math.max(1, (int) Math.ceil((double) shortcuts.size() / ITEMS_PER_PAGE));
             int page = prefs.getInt("page_" + appWidgetId, 0);
@@ -268,7 +275,7 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
             AppWidgetManager mgr = AppWidgetManager.getInstance(context);
             updateWidget(context, mgr, appWidgetId);
         } else if (ACTION_NEXT.equals(action) && appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
-            requestShortcutsFromTermux(context);
+            requestShortcutsFromTermux(context, false);
             List<String> shortcuts = getShortcuts(prefs);
             int totalPages = Math.max(1, (int) Math.ceil((double) shortcuts.size() / ITEMS_PER_PAGE));
             int page = prefs.getInt("page_" + appWidgetId, 0);
@@ -278,9 +285,10 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
             updateWidget(context, mgr, appWidgetId);
         } else if (ACTION_REFRESH.equals(action)) {
             Toast.makeText(context, "🔄 Comprobando servidores y shortcuts...", Toast.LENGTH_SHORT).show();
-            requestShortcutsFromTermux(context);
+            requestShortcutsFromTermux(context, true);
         } else if (ACTION_UPDATE_LIST.equals(action)) {
             String listStr = intent.getStringExtra("shortcuts");
+            boolean silent = intent.getBooleanExtra("silent", false);
             int p3000 = intent.getIntExtra("port3000", 0);
             int p8081 = intent.getIntExtra("port8081", 0);
             prefs.edit()
@@ -299,10 +307,12 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
                 }
                 prefs.edit().putString("shortcuts_json", arr.toString()).apply();
                 refreshAllWidgets(context);
-                if (arr.length() > 0) {
-                    Toast.makeText(context, "✔ " + arr.length() + " shortcuts actualizados", Toast.LENGTH_SHORT).show();
-                } else {
-                    Toast.makeText(context, "ℹ️ No se encontraron archivos en ~/.shortcuts/", Toast.LENGTH_SHORT).show();
+                if (!silent) {
+                    if (arr.length() > 0) {
+                        Toast.makeText(context, "✔ " + arr.length() + " shortcuts actualizados", Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(context, "ℹ️ No se encontraron archivos en ~/.shortcuts/", Toast.LENGTH_SHORT).show();
+                    }
                 }
             } else {
                 refreshAllWidgets(context);
@@ -331,7 +341,7 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
         runInTermuxCommand(context, cmd);
 
         // Actualizar lista y estado de servidores
-        requestShortcutsFromTermux(context);
+        requestShortcutsFromTermux(context, false);
     }
 
     private static void refreshAllWidgets(Context context) {
@@ -356,11 +366,16 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
     }
 
     public static void requestShortcutsFromTermux(Context context) {
-        // Escaneo de shortcuts y ping a puertos locales con bash puro
-        String cmd = "list=$(cd \"$HOME/.shortcuts\" 2>/dev/null && find . -maxdepth 2 -type f ! -name \".*\" ! -name \"*~\" | sed 's|^\\./||' | sort); "
+        requestShortcutsFromTermux(context, false);
+    }
+
+    public static void requestShortcutsFromTermux(Context context, boolean manual) {
+        // Escaneo profundo de ~/.shortcuts (sigue enlaces simbólicos y subcarpetas) + ping a puertos locales
+        String silentFlag = manual ? "false" : "true";
+        String cmd = "list=$(cd \"$HOME/.shortcuts\" 2>/dev/null && find -L . -type f ! -name \".*\" ! -name \"*~\" | sed 's|^\\./||' | sort); "
                    + "p3000=0; (echo > /dev/tcp/127.0.0.1/3000) 2>/dev/null && p3000=1; "
                    + "p8081=0; (echo > /dev/tcp/127.0.0.1/8081) 2>/dev/null && p8081=1; "
-                   + "am broadcast -p com.andrey.widget -n com.andrey.widget/.AndreyWidgetProvider -a com.andrey.widget.UPDATE_LIST --es shortcuts \"$list\" --ei port3000 $p3000 --ei port8081 $p8081 >/dev/null 2>&1";
+                   + "am broadcast -p com.andrey.widget -n com.andrey.widget/.AndreyWidgetProvider -a com.andrey.widget.UPDATE_LIST --es shortcuts \"$list\" --ei port3000 $p3000 --ei port8081 $p8081 --ez silent " + silentFlag + " >/dev/null 2>&1";
         runInTermuxCommand(context, cmd);
     }
 

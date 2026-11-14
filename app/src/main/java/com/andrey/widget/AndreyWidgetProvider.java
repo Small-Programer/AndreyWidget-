@@ -18,6 +18,7 @@ import org.json.JSONArray;
 import org.json.JSONException;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class AndreyWidgetProvider extends AppWidgetProvider {
@@ -240,6 +241,17 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
         views.setOnClickPendingIntent(cardId, pi);
     }
 
+    private static int getPriority(String item) {
+        String lower = item.toLowerCase();
+        if (lower.equals("termuxmain") || lower.equals("termux")) return 0;
+        if (lower.equals("encender_andreycode.sh") || lower.equals("encender_andreycode")) return 1;
+        if (lower.equals("apagar_andreycode.sh") || lower.equals("apagar_andreycode")) return 2;
+        if (lower.equals("ubuntucode") || lower.equals("ubuntu")) return 3;
+        if (lower.equals("encender_portafolio.sh") || lower.equals("encender_portafolio")) return 4;
+        if (lower.equals("apagar_portafolio.sh") || lower.equals("apagar_portafolio")) return 5;
+        return 100;
+    }
+
     private static List<String> getShortcuts(SharedPreferences prefs) {
         List<String> list = new ArrayList<>();
         String json = prefs.getString("shortcuts_json", null);
@@ -254,6 +266,14 @@ public class AndreyWidgetProvider extends AppWidgetProvider {
                 }
             } catch (JSONException ignored) {}
         }
+        Collections.sort(list, (a, b) -> {
+            int pa = getPriority(a);
+            int pb = getPriority(b);
+            if (pa != pb) {
+                return Integer.compare(pa, pb);
+            }
+            return a.compareToIgnoreCase(b);
+        });
         return list;
     }
 
